@@ -1,20 +1,17 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 28 19:48:47 2019
+import math
 
-@author: jmand
-"""
-
+"------------------------------------------------------------------------------"
 # each cell in the board should contain a Variable
 class Variable:
     # Domain for the variable
-    domain = []
+    domain = set()
     # The value of the variable 0 means no assignment
     value = 0
     
     def __init__(self, value):
         self.value = value
-    
+
+"------------------------------------------------------------------------------"
 class sudokuSolver:
     
     # The board will be a 2 dimensional array
@@ -23,6 +20,8 @@ class sudokuSolver:
     size = 0
     # a set of all possible values a variable could have
     allValues = set()
+    # boolean value identifying if the problem is solved yet
+    solved = False
     
     def __init__(self, board, size = 25):
         self.size = size
@@ -47,11 +46,18 @@ class sudokuSolver:
         for y in range(len(self.board[0])):
             con.add(self.board[x][y].value)
         return con
-    
+
     # returns constraints from this variables box
     def boxConstraints(self, x, y) -> set:
         # iterate through all cells in the box for this Variable
-        return set()
+        con = set()
+        cellSize = int(math.sqrt(self.size))
+        xStart = (x // cellSize)*cellSize
+        yStart = (y // cellSize)*cellSize
+        for row in range(yStart,yStart+cellSize):
+            for col in range(xStart,xStart+cellSize):
+                con.add(self.board[col][row].value)
+        return con
     
     # for a given empty position on the board, identify constraints
     def findConstraints(self, x, y) -> set:
@@ -72,15 +78,71 @@ class sudokuSolver:
                 con = self.findConstraints(x,y)
                 if(self.board[x][y].value == 0):
                     self.board[x][y].domain = self.allValues.difference(con)
+
+    # remove val from domains in a row
+    def updateRowConstraints(self, y, val):
+        for x in range(len(self.board)):
+            self.board[x][y].domain.discard(val)
+
+    # remove val from domains in a col
+    def updateColConstraints(self, x, val):
+        for y in range(len(self.board[0])):
+            self.board[x][y].domain.discard(val)
+
+    # remove val from domains in a box
+    def updateBoxConstraints(self, x, y, val):
+        cellSize = int(math.sqrt(self.size))
+        xStart = (x // cellSize)*cellSize
+        yStart = (y // cellSize)*cellSize
+        for row in range(yStart,yStart+cellSize):
+            for col in range(xStart,xStart+cellSize):
+                self.board[col][row].domain.discard(val)
+
+    # assigns the variable in x, y to the value val
+    def assignVariable(self, x, y, val):
+        self.board[x][y].value = val
+        #update constraints for all affected variables
+        self.updateRowConstraints(y, val)
+        self.updateColConstraints(x, val)
+        self.updateBoxConstraints(x, y, val)
+
+    # searches the board for easy moves (where domain has 1 element)
+    def searchOneElementDomains(self):
+        for x in range(self.size):
+            for y in range(self.size):
+                if len(self.board[x][y].domain) == 1:
+                        #print(self.board[x][y].domain)
+                        val = self.board[x][y].domain.pop()
+                        self.assignVariable(x,y,val)
+                        #self.printBoard()
+                        #print("added ", val, "to ", x, y)
+                        #input()
+
+    def printBoard(self):
+        for x in range(self.size):
+            print()
+            for y in range(self.size):
+                print(self.board[x][y].value, end=" ")
+
+    def checkIfSolved(self):
+        for x in range(self.size):
+            for y in range(self.size):
+                if self.board[x][y].value == 0:
+                    return False
+        return True
+
+    # algorithm for solving entire problem
+    # right now it only searches for domains with 1 element
+    # we will keep making this better...
+    def solve(self):
+        i = 0
+        while not self.solved:
+            self.searchOneElementDomains()
+            self.solved = self.checkIfSolved()
+            print("iteration ", i)
+            i += 1
     
-    # arc consistency algorithm that runs over every cell of the board
-    # we might not need this.....
-    def AC3(self):
-        pass
-    
-    # sub function for AC3
-    def revise(self, Xi: Variable, Xj: Variable) -> bool:
-        pass
+"------------------------------------------------------------------------------"
 
 if __name__ == "__main__":
     # replace this later with code that reads from a file
@@ -97,6 +159,8 @@ if __name__ == "__main__":
             ]
     solver = sudokuSolver(board, 9)
     solver.setDomains()
+    solver.solve()
+    solver.printBoard()
         
         
         
