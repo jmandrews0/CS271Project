@@ -158,9 +158,9 @@ class sudokuSolver:
         var.value = val
         var.domain[-1].discard(val)
         if guess:
-            self.restoreSet.append(set())
             self.backtrackList.append(var)
             self.checkpointBoard()
+            self.restoreSet[-1].add(var)
         #update constraints for all affected variables
         self.updateRowConstraints(var.position[1], val)
         self.updateColConstraints(var.position[0], val)
@@ -178,11 +178,19 @@ class sudokuSolver:
         variable = self.backtrackList.pop()
         # restore board to last checkpoint
         self.restoreBoard()
-        # unassign value
-        variable.value = 0
+        # reassign value
+        if len(variable.domain[-1]) > 0:
+            val = variable.domain[-1].pop()
+            if len(variable.domain[-1]) == 0:
+                self.assignVariable(variable, val) # no longer a guess
+            else:
+                self.assignVariable(variable, val, True) # still making a guess
+        else:
+            print("NO SOLUTION")
+        #variable.value = 0
         # we don't know if this variable is in the queue or not, but it needs to be there
         # a duplicate variable in the varHeap should not be an issue, it will eventually get discarded
-        self.varHeap.append(variable)
+        #self.varHeap.append(variable)
 
     # restore the board to the last checkpoint
     def restoreBoard(self):
@@ -193,6 +201,7 @@ class sudokuSolver:
                 self.board[x][y].domain.pop()
         for v in self.restoreSet[-1]:
             v.value = 0;
+            self.varHeap.append(v)
         self.restoreSet.pop()
 
     # create a restore point for the board when a guess is made
@@ -202,6 +211,7 @@ class sudokuSolver:
         for x in range(len(self.board)):
             for y in range(len(self.board[0])):
                 self.board[x][y].domain.append(set([v for v in self.board[x][y].domain[-1]]))
+        self.restoreSet.append(set())
 
     #-----------------------------------------------------------------------------
 
@@ -212,15 +222,11 @@ class sudokuSolver:
         while keepGoing:
             keepGoing = False
             heapq.heapify(self.varHeap)
-            #print("smallest domain ", self.varHeap[0].position, end=" {")
-            #for v in self.varHeap[0].domain[-1]:
-            #    print(v, end=" ")
-            #print("}")
             # if the heap has a variable that has already been assigned, remove it
             while len(self.varHeap) > 0 and self.varHeap[0].value != 0:
                 heapq.heappop(self.varHeap)
             # checks if the top variable of the heap can be resolved...
-            while not self.checkIfSolved() and self.varHeap[0].value == 0 and len(self.varHeap[0].domain[-1]) == 1:
+            while len(self.varHeap) > 0 and self.varHeap[0].value == 0 and len(self.varHeap[0].domain[-1]) == 1:
                 val = self.varHeap[0].domain[-1].pop()
                 var = heapq.heappop(self.varHeap)
                 self.assignVariable(var, val)
@@ -324,6 +330,8 @@ class sudokuSolver:
         while self.varHeap[0].value != 0:
             heapq.heappop(self.varHeap)
         # assign variable with smallest domain to a value, and record it in a stack
+        if len(self.varHeap) > 0:
+            print("smallest domain ", self.varHeap[0])
         val = self.varHeap[0].domain[-1].pop()
         self.assignVariable(self.varHeap[0], val, True)
         heapq.heappop(self.varHeap)
@@ -348,8 +356,6 @@ class sudokuSolver:
         print()
 
     def checkIfSolved(self) -> bool:
-        if len(self.varHeap) == 0:
-            return True
         for x in range(self.size):
             for y in range(self.size):
                 if self.board[x][y].value == 0:
@@ -357,10 +363,10 @@ class sudokuSolver:
         return True
 
     def checkIfError(self) -> bool:
+        while len(self.varHeap) > 0 and self.varHeap[0].value != 0:
+            heapq.heappop(self.varHeap)
         if len(self.varHeap) == 0:
             return False
-        while self.varHeap[0].value != 0:
-            heapq.heappop(self.varHeap)
         return not self.checkIfSolved() and len(self.varHeap[0].domain[-1]) == 0
         
 
@@ -393,28 +399,28 @@ class sudokuSolver:
 if __name__ == "__main__":
     # replace this later with code that reads from a file
     # I made the board a 9x9 for now to make visual testing easier
+
+    # 0|  9 4 6  3 8 5  1 7 2
+    # 1|  7 5 1  4 9 2  3 6 8
+    # 2|  3 8 2  7 6 1  9 4 5
+
+    # 3|  1 3 7  5 4 8  2 9 6
+    # 4|  2 9 4  6 1 7  8 5 3
+    # 5|  5 6 8  2 3 9  7 1 4
+
+    # 6|  8 2 5  1 7 4  6 3 9
+    # 7|  4 1 3  9 2 6  5 8 7
+    # 8|  6 7 9  8 5 3  4 2 1
     
-    #0|  9 5 7  6 1 3  2 8 4
-    #1|  4 8 3  2 5 7  1 9 6
-    #2|  6 1 2  8 4 9  5 3 7
-    
-    #3|  1 7 8  3 6 4  9 5 2
-    #4|  5 2 4  9 7 1  3 6 8
-    #5|  3 6 9  5 2 8  7 4 1
-    
-    #6|  8 4 5  7 9 2  6 1 3
-    #7|  2 9 1  4 3 6  8 7 5
-    #8|  7 3 6  1 8 5  4 2 9
-    
-    board = [[0,0,0,0,0,0,2,0,0],
-             [0,8,0,0,0,7,0,9,0],
-             [6,0,2,0,0,0,5,0,0],
-             [0,7,0,0,6,0,0,0,0],
-             [0,0,0,9,0,1,0,0,0],
-             [0,0,0,0,2,0,0,4,0],
-             [0,0,5,0,0,0,6,0,3],
-             [0,9,0,4,0,0,0,7,0],
-             [0,0,6,0,0,0,0,0,0]
+    board = [[9,4,0,0,8,0,0,0,2],
+             [0,0,1,0,0,2,0,0,8],
+             [3,0,2,7,0,0,0,0,5],
+             [0,3,0,0,4,8,0,0,0],
+             [0,0,0,0,0,0,0,0,0],
+             [0,0,0,2,3,0,0,1,0],
+             [8,0,0,0,0,4,6,0,9],
+             [4,0,0,9,0,0,5,0,0],
+             [6,0,0,0,5,0,0,2,1]
             ]
     solver = sudokuSolver(board, 9)
     solver.setDomains()
