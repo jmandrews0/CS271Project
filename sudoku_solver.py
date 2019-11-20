@@ -11,7 +11,7 @@ EMPTY = 0
 class Variable:
     # Domain for the variable, current domain is the last or [-1] index
     domain = [set()]
-    # The value of the variable 0 means no assignment
+    # The value of the variable EMPTY means no assignment
     value = EMPTY
     # The x and y axis location of this variable
     position = (0,0)
@@ -65,10 +65,14 @@ class sudokuSolver:
     kb = KB.KB()
     # boolean value identifying if the problem is solved yet
     solved = False
+    # boolean value identifying if the problem has no solution
+    error = False
     
     def __init__(self, board, size = 25):
         self.size = size
         self.allValues = set(i for i in range(1,size+1))
+        #self.allValues = set(i for i in range(0,size))
+        print(self.allValues)
         # initialize constraintArr
         for i in range(size):
             self.constraintArr.append([set()])
@@ -86,7 +90,6 @@ class sudokuSolver:
         for x in range(len(self.board)):
             con.add(self.board[x][y].value)
         return con
-            
      
     # returns constraints from this variables column
     def colConstraints(self, x) -> set:
@@ -172,9 +175,11 @@ class sudokuSolver:
         # if backtrack mode is on, see if solution is consistent
         if self.searchMode:
             self.restoreSet[-1].add(var)
-            heapq.heapify(self.varHeap)
             if self.checkIfError():
                 self.backTrack()
+        elif self.checkIfError():
+            print("NO SOLUTION")
+            self.error = True
 
     def backTrack(self):
         print("made a mistake, backtracking...")
@@ -191,6 +196,10 @@ class sudokuSolver:
                 self.assignVariable(variable, val, True) # still making a guess
         else:
             print("NO SOLUTION")
+            self.error = True
+        # if there are no more guesses in the backtrack list, turn searchMode off
+        if len(self.backtrackList) == 0:
+            self.searchMode = False
         #variable.value = EMPTY
         # we don't know if this variable is in the queue or not, but it needs to be there
         # a duplicate variable in the varHeap should not be an issue, it will eventually get discarded
@@ -337,8 +346,8 @@ class sudokuSolver:
         if len(self.varHeap) > 0:
             print("smallest domain ", self.varHeap[0])
         val = self.varHeap[0].domain[-1].pop()
-        self.assignVariable(self.varHeap[0], val, True)
-        heapq.heappop(self.varHeap)
+        var = heapq.heappop(self.varHeap)
+        self.assignVariable(var, val, True)
     
     #-----------------------------------------------------------------------------
 
@@ -346,7 +355,12 @@ class sudokuSolver:
         for x in range(self.size):
             print()
             for y in range(self.size):
-                print(self.board[x][y].value, end=" ")
+                val = self.board[x][y].value if (self.board[x][y].value != EMPTY) else "*"
+                print(val, end=" ")
+                if (y+1) % int(math.sqrt(self.size)) == 0:
+                    print("\t", end="")
+            if (x+1) % int(math.sqrt(self.size)) == 0:
+                print()
         print()
 
     def printConstraint(self, val):
@@ -367,10 +381,12 @@ class sudokuSolver:
         return True
 
     def checkIfError(self) -> bool:
+        heapq.heapify(self.varHeap)
         while len(self.varHeap) > 0 and self.varHeap[0].value != EMPTY:
             heapq.heappop(self.varHeap)
         if len(self.varHeap) == 0:
             return False
+        print("heap top: ", self.varHeap[0])
         return not self.checkIfSolved() and len(self.varHeap[0].domain[-1]) == 0
         
 
@@ -379,8 +395,10 @@ class sudokuSolver:
     # we will keep making this better...
     def solve(self):
         i = 0
-        while not self.solved:
+        while not self.solved and not self.error:
             print("-------------------- iteration ", i, " --------------------")
+            #print("CHECKING FOR ERRORS")
+            #self.error = self.checkIfError()
             print("SEARCH ONE ELEMENT DOMAINS")
             self.searchOneElementDomains()
             print("SEARCH RESTRICTIONS")
@@ -389,14 +407,17 @@ class sudokuSolver:
             # if nothing can be assigned, then backtrack search
             if not assigned:
                 self.searchMode = True
-            if self.searchMode and not assigned:
+            if self.searchMode and not assigned and not self.checkIfSolved():
                 print("MAKE VARIABLE GUESS")
                 self.makeVarGuess()
-                
             self.solved = self.checkIfSolved()
             i += 1
             self.printBoard()
             input()
+        if self.error:
+            print("cannot solve :(")
+        elif self.solved:
+            print("Solved!!")
     
 "------------------------------------------------------------------------------"
 
@@ -404,23 +425,23 @@ if __name__ == "__main__":
     # replace this later with code that reads from a file
     # I made the board a 9x9 for now to make visual testing easier
 
-    # 0|  9 4 6  3 8 5  1 7 2
-    # 1|  7 5 1  4 9 2  3 6 8
-    # 2|  3 8 2  7 6 1  9 4 5
+    # 0|  8 3 5  2 7 4  0 6 1
+    # 1|  6 4 0  3 8 1  2 5 7
+    # 2|  2 7 1  6 5 0  8 3 4
 
-    # 3|  1 3 7  5 4 8  2 9 6
-    # 4|  2 9 4  6 1 7  8 5 3
-    # 5|  5 6 8  2 3 9  7 1 4
+    # 3|  0 2 6  4 3 7  1 8 5
+    # 4|  1 8 3  5 0 6  7 4 2
+    # 5|  4 5 7  1 2 8  6 0 3
 
-    # 6|  8 2 5  1 7 4  6 3 9
-    # 7|  4 1 3  9 2 6  5 8 7
-    # 8|  6 7 9  8 5 3  4 2 1
+    # 6|  7 1 4  0 6 3  5 2 8
+    # 7|  3 0 2  8 1 5  4 7 6
+    # 8|  5 6 8  7 4 2  3 1 0
     
-    SIZE = 9
+    SIZE = 16
     solver = sudokuSolver(loader.Loader(SIZE), SIZE)
+    solver.printBoard()
     solver.setDomains()
     solver.solve()
-    print("Done!!")
         
         
         

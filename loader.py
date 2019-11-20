@@ -10,7 +10,6 @@ class Loader:
 		if data is not None:
 			self.data = data
 			return
-
 		self.data = []
 		if len(sys.argv) > 1:
 			self.loadFromFile(sys.argv[1])
@@ -33,8 +32,8 @@ class Loader:
 				self.data.append(arr)
 
 	def loadFromStdin(self):
-		print("Loading from stdin is not implemented. Please provide input file as a second argument.\nFor example: python3 ./sudoku_solver.py ./test.txt")
-		exit(1)
+		fName = input("Enter a file name:")
+		self.loadFromFile(fName)
 
 	def __getitem__(self, key):
 		return self.data[key]
