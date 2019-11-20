@@ -1,6 +1,10 @@
 import math
 import heapq
 import KB
+import loader
+
+# this constant says which number is consider to be no number set in this cell
+EMPTY = 0
 
 "------------------------------------------------------------------------------"
 # each cell in the board should contain a Variable
@@ -8,7 +12,7 @@ class Variable:
     # Domain for the variable, current domain is the last or [-1] index
     domain = [set()]
     # The value of the variable 0 means no assignment
-    value = 0
+    value = EMPTY
     # The x and y axis location of this variable
     position = (0,0)
     
@@ -73,7 +77,7 @@ class sudokuSolver:
             self.board.append([])
             for y in range(size):
                 self.board[-1].append(Variable(board[x][y],x,y))
-                if self.board[-1][-1].value == 0:
+                if self.board[-1][-1].value == EMPTY:
                     self.varHeap.append(self.board[-1][-1])
     
     # returns constraints from this variables row
@@ -121,7 +125,7 @@ class sudokuSolver:
             for y in range(self.size):
                 con = self.findConstraints(x,y)
                 # set the domain of variable
-                if(self.board[x][y].value == 0):
+                if(self.board[x][y].value == EMPTY):
                     self.board[x][y].domain[-1] = self.allValues.difference(con)
                 # add the variable to the constraint array
                 for c in con:
@@ -187,7 +191,7 @@ class sudokuSolver:
                 self.assignVariable(variable, val, True) # still making a guess
         else:
             print("NO SOLUTION")
-        #variable.value = 0
+        #variable.value = EMPTY
         # we don't know if this variable is in the queue or not, but it needs to be there
         # a duplicate variable in the varHeap should not be an issue, it will eventually get discarded
         #self.varHeap.append(variable)
@@ -200,7 +204,7 @@ class sudokuSolver:
             for y in range(len(self.board[0])):
                 self.board[x][y].domain.pop()
         for v in self.restoreSet[-1]:
-            v.value = 0;
+            v.value = EMPTY;
             self.varHeap.append(v)
         self.restoreSet.pop()
 
@@ -223,10 +227,10 @@ class sudokuSolver:
             keepGoing = False
             heapq.heapify(self.varHeap)
             # if the heap has a variable that has already been assigned, remove it
-            while len(self.varHeap) > 0 and self.varHeap[0].value != 0:
+            while len(self.varHeap) > 0 and self.varHeap[0].value != EMPTY:
                 heapq.heappop(self.varHeap)
             # checks if the top variable of the heap can be resolved...
-            while len(self.varHeap) > 0 and self.varHeap[0].value == 0 and len(self.varHeap[0].domain[-1]) == 1:
+            while len(self.varHeap) > 0 and self.varHeap[0].value == EMPTY and len(self.varHeap[0].domain[-1]) == 1:
                 val = self.varHeap[0].domain[-1].pop()
                 var = heapq.heappop(self.varHeap)
                 self.assignVariable(var, val)
@@ -245,7 +249,7 @@ class sudokuSolver:
                 # add up all available variables for this value
                 for x in range(cellX*cellSize, cellX*cellSize+cellSize):
                     for y in range(cellY*cellSize, cellY*cellSize+cellSize):
-                        if self.board[x][y].value == 0 and self.board[x][y] not in self.constraintArr[val-1][-1]:
+                        if self.board[x][y].value == EMPTY and self.board[x][y] not in self.constraintArr[val-1][-1]:
                                 available.append((x,y))
                 # check if assignment can be made (only 1 available variable) 
                 if len(available) == 1:
@@ -261,7 +265,7 @@ class sudokuSolver:
         for y in range(len(self.board[0])):
             available = []
             for x in range(len(self.board)):
-                if self.board[x][y].value == 0 and self.board[x][y] not in self.constraintArr[val-1][-1]:
+                if self.board[x][y].value == EMPTY and self.board[x][y] not in self.constraintArr[val-1][-1]:
                     available.append((x,y))
             # check if assignment can be made (only 1 available variable) 
             if len(available) == 1:
@@ -277,7 +281,7 @@ class sudokuSolver:
         for x in range(len(self.board)):
             available = []
             for y in range(len(self.board[0])):
-                if self.board[x][y].value == 0 and self.board[x][y] not in self.constraintArr[val-1][-1]:
+                if self.board[x][y].value == EMPTY and self.board[x][y] not in self.constraintArr[val-1][-1]:
                     available.append((x,y))
             # check if assignment can be made (only 1 available variable) 
             if len(available) == 1:
@@ -327,7 +331,7 @@ class sudokuSolver:
     # Make guesses when no other decisions can be made
     def makeVarGuess(self):
         # make sure top value of heap is not already assigned
-        while self.varHeap[0].value != 0:
+        while self.varHeap[0].value != EMPTY:
             heapq.heappop(self.varHeap)
         # assign variable with smallest domain to a value, and record it in a stack
         if len(self.varHeap) > 0:
@@ -349,7 +353,7 @@ class sudokuSolver:
         for x in range(self.size):
             print()
             for y in range(self.size):
-                if self.board[x][y] in self.constraintArr[val-1][-1] or self.board[x][y].value != 0:
+                if self.board[x][y] in self.constraintArr[val-1][-1] or self.board[x][y].value != EMPTY:
                     print("*", end=" ")
                 else:
                     print("0", end=" ")
@@ -358,12 +362,12 @@ class sudokuSolver:
     def checkIfSolved(self) -> bool:
         for x in range(self.size):
             for y in range(self.size):
-                if self.board[x][y].value == 0:
+                if self.board[x][y].value == EMPTY:
                     return False
         return True
 
     def checkIfError(self) -> bool:
-        while len(self.varHeap) > 0 and self.varHeap[0].value != 0:
+        while len(self.varHeap) > 0 and self.varHeap[0].value != EMPTY:
             heapq.heappop(self.varHeap)
         if len(self.varHeap) == 0:
             return False
@@ -412,17 +416,8 @@ if __name__ == "__main__":
     # 7|  4 1 3  9 2 6  5 8 7
     # 8|  6 7 9  8 5 3  4 2 1
     
-    board = [[9,4,0,0,8,0,0,0,2],
-             [0,0,1,0,0,2,0,0,8],
-             [3,0,2,7,0,0,0,0,5],
-             [0,3,0,0,4,8,0,0,0],
-             [0,0,0,0,0,0,0,0,0],
-             [0,0,0,2,3,0,0,1,0],
-             [8,0,0,0,0,4,6,0,9],
-             [4,0,0,9,0,0,5,0,0],
-             [6,0,0,0,5,0,0,2,1]
-            ]
-    solver = sudokuSolver(board, 9)
+    SIZE = 9
+    solver = sudokuSolver(loader.Loader(SIZE), SIZE)
     solver.setDomains()
     solver.solve()
     print("Done!!")
