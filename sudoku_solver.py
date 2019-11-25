@@ -138,16 +138,18 @@ class sudokuSolver:
     #-----------------------------------------------------------------------------
 
     # remove val from domains in a row
-    def updateRowConstraints(self, y, val):
+    def updateRowConstraints(self, y, val, skip=set()):
         for x in range(len(self.board)):
-            self.board[x][y].domain[-1].discard(val)
-            self.constraintArr[val-1][-1].add(self.board[x][y])
+            if (x,y) not in skip:
+                self.board[x][y].domain[-1].discard(val)
+                self.constraintArr[val-1][-1].add(self.board[x][y])
 
     # remove val from domains in a col
-    def updateColConstraints(self, x, val):
+    def updateColConstraints(self, x, val, skip=set()):
         for y in range(len(self.board[0])):
-            self.board[x][y].domain[-1].discard(val)
-            self.constraintArr[val-1][-1].add(self.board[x][y])
+            if (x,y) not in skip:
+                self.board[x][y].domain[-1].discard(val)
+                self.constraintArr[val-1][-1].add(self.board[x][y])
 
     # remove val from domains in a box
     def updateBoxConstraints(self, x, y, val):
@@ -161,7 +163,7 @@ class sudokuSolver:
 
     # assigns the variable in x, y to the value val
     def assignVariable(self, var, val, guess = False):
-        print("assigning ", val, "to ", var.position[0], var.position[1])
+        #print("assigning ", val, "to ", var.position[0], var.position[1])
         var.value = val
         var.domain[-1].discard(val)
         if guess:
@@ -178,11 +180,11 @@ class sudokuSolver:
             if self.checkIfError():
                 self.backTrack()
         elif self.checkIfError():
-            print("NO SOLUTION")
+            #print("NO SOLUTION")
             self.error = True
 
     def backTrack(self):
-        print("made a mistake, backtracking...")
+        #print("made a mistake, backtracking...")
         assert len(self.backtrackList) > 0
         variable = self.backtrackList.pop()
         # restore board to last checkpoint
@@ -195,7 +197,7 @@ class sudokuSolver:
             else:
                 self.assignVariable(variable, val, True) # still making a guess
         else:
-            print("NO SOLUTION")
+            #print("NO SOLUTION")
             self.error = True
         # if there are no more guesses in the backtrack list, turn searchMode off
         if len(self.backtrackList) == 0:
@@ -265,8 +267,23 @@ class sudokuSolver:
                     x,y = available[0]
                     self.assignVariable(self.board[x][y], val)
                     assigned = True
-                #elif len(available) < 3:
-                #    self.tellKB(available, val)
+                # THIS IMPROVES SPEED
+                elif len(available) > 1:
+                    # check if all in same row or col
+                    rowSame = True
+                    colSame = True
+                    row, col = available[0]
+                    for i in range(1, len(available)):
+                        if rowSame and row != available[i][0]:
+                            rowSame = False
+                        if colSame and col != available[i][1]:
+                            colSame = False
+                    if rowSame:
+                        # remove val from entire row
+                        self.updateColConstraints(row, val, set(available))
+                    if colSame:
+                        # remove val from entire col
+                        self.updateRowConstraints(col, val, set(available))
         return assigned
                     
     def searchRowRestrictions(self, val) -> bool:
@@ -281,8 +298,6 @@ class sudokuSolver:
                 x,y = available[0]
                 self.assignVariable(self.board[x][y], val)
                 assigned = True
-            #elif len(available) < 3:
-            #    self.tellKB(available, val)
         return assigned
 
     def searchColRestrictions(self, val) -> bool:
@@ -297,8 +312,6 @@ class sudokuSolver:
                 x,y = available[0]
                 self.assignVariable(self.board[x][y], val)
                 assigned = True
-            #elif len(available) < 3:
-            #    self.tellKB(available, val)
         return assigned
                     
     def searchAllRestrictions(self) -> bool:
@@ -342,9 +355,12 @@ class sudokuSolver:
         # make sure top value of heap is not already assigned
         while self.varHeap[0].value != EMPTY:
             heapq.heappop(self.varHeap)
+        if len(self.varHeap[0].domain[-1]) == 0:
+            error = True
+            return
         # assign variable with smallest domain to a value, and record it in a stack
-        if len(self.varHeap) > 0:
-            print("smallest domain ", self.varHeap[0])
+        #if len(self.varHeap) > 0:
+        #    print("smallest domain ", self.varHeap[0])
         val = self.varHeap[0].domain[-1].pop()
         var = heapq.heappop(self.varHeap)
         self.assignVariable(var, val, True)
@@ -386,7 +402,7 @@ class sudokuSolver:
             heapq.heappop(self.varHeap)
         if len(self.varHeap) == 0:
             return False
-        print("heap top: ", self.varHeap[0])
+        #print("heap top: ", self.varHeap[0])
         return not self.checkIfSolved() and len(self.varHeap[0].domain[-1]) == 0
         
 
@@ -396,24 +412,24 @@ class sudokuSolver:
     def solve(self):
         i = 0
         while not self.solved and not self.error:
-            print("-------------------- iteration ", i, " --------------------")
+            #print("-------------------- iteration ", i, " --------------------")
             #print("CHECKING FOR ERRORS")
             #self.error = self.checkIfError()
-            print("SEARCH ONE ELEMENT DOMAINS")
+            #print("SEARCH ONE ELEMENT DOMAINS")
             self.searchOneElementDomains()
-            print("SEARCH RESTRICTIONS")
+            #print("SEARCH RESTRICTIONS")
             assigned = self.searchAllRestrictions()
-            print("assigned: ", assigned)
+            #print("assigned: ", assigned)
             # if nothing can be assigned, then backtrack search
             if not assigned:
                 self.searchMode = True
             if self.searchMode and not assigned and not self.checkIfSolved():
-                print("MAKE VARIABLE GUESS")
+                #print("MAKE VARIABLE GUESS")
                 self.makeVarGuess()
             self.solved = self.checkIfSolved()
             i += 1
-            self.printBoard()
-            input()
+            #self.printBoard()
+            #input()
         if self.error:
             print("cannot solve :(")
         elif self.solved:
@@ -437,11 +453,12 @@ if __name__ == "__main__":
     # 7|  3 0 2  8 1 5  4 7 6
     # 8|  5 6 8  7 4 2  3 1 0
     
-    SIZE = 16
+    SIZE = 25
     solver = sudokuSolver(loader.Loader(SIZE), SIZE)
     solver.printBoard()
     solver.setDomains()
     solver.solve()
+    solver.printBoard()
         
         
         
