@@ -204,7 +204,10 @@ class sudokuSolver:
 
     # assigns the variable in x, y to the value val
     def assignVariable(self, var, val, guess = False):
-        #print("assigning ", val, "to ", var.position[0], var.position[1])
+        #if guess:
+        #    print("guess ", val, "to ", var.position[0], var.position[1])
+        #else:
+        #    print("assigning ", val, "to ", var.position[0], var.position[1])
         var.value = val
         var.domain[-1].discard(val)
         for i in range(1,self.size+1):
@@ -533,7 +536,7 @@ class sudokuSolver:
         bestVal = next(values)
         bestCount = self.countConstraints(self.varHeap[0], bestVal)
         for v in values:
-            count = self.countConstraints(self.varHeap[0], bestVal)
+            count = self.countConstraints(self.varHeap[0], v)
             if count < bestCount:
                 bestVal = v
                 bestCount = count
@@ -640,9 +643,9 @@ class sudokuSolver:
             
         if self.solved:
             print("Solved!!")
-            correct = verifier.verify(self)
-            if not correct:
-                raise Exception('wrong')
+            #correct = verifier.verify(self)
+            #if not correct:
+            #    raise Exception('wrong')
         if self.error:
             print("No solution!!")
     
