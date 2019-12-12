@@ -1,11 +1,16 @@
 import math
 import heapq
+import time
 import loader
+from multiprocessing import Process, Queue
 import verifier
 #import time
 
 # this constant says which number is consider to be no number set in this cell
 EMPTY = 0
+
+SOLUTION = "12 24 6 10 16 17 2 7 18 4 25 11 3 22 23 1 9 20 19 8 5 21 14 13 15 11 5 21 14 23 10 24 9 6 19 7 2 15 16 4 25 3 22 13 18 1 17 8 12 20 20 1 13 8 9 16 5 21 14 11 19 24 10 18 12 17 2 15 7 4 22 3 6 25 23 15 25 3 22 19 12 1 13 8 20 21 5 9 17 14 6 23 24 10 11 4 2 7 18 16 4 17 2 7 18 15 25 3 22 23 20 1 13 8 6 16 5 21 14 12 19 24 9 10 11 24 6 5 13 10 4 19 2 21 18 23 25 8 14 20 12 1 11 15 9 16 7 3 22 17 23 16 1 3 14 11 6 24 15 5 4 17 2 7 19 20 25 18 22 10 12 9 13 8 21 9 12 8 21 22 23 16 1 7 14 11 6 24 15 10 5 13 3 17 2 20 25 4 19 18 19 20 25 15 11 9 12 22 13 17 16 3 5 1 18 8 24 4 21 7 14 6 2 23 10 18 4 17 2 7 20 8 25 3 10 9 12 22 13 21 23 6 19 16 14 11 5 24 15 1 10 11 18 24 3 8 4 17 2 7 15 20 25 19 22 9 12 6 1 13 23 16 5 21 14 8 23 16 5 21 24 11 6 25 15 18 4 14 2 17 19 20 7 3 22 10 12 1 9 13 6 14 12 1 15 19 13 16 5 21 10 9 7 24 11 18 4 23 2 17 8 20 25 3 22 22 19 20 25 13 18 14 12 1 9 5 23 16 21 3 10 11 8 24 15 6 4 17 2 7 7 9 4 17 2 22 23 20 10 3 12 8 1 6 13 14 16 25 5 21 18 11 15 24 19 14 18 23 6 24 7 15 4 17 2 22 19 20 25 1 11 10 12 9 3 21 13 16 5 8 21 7 9 16 5 6 10 11 19 24 17 18 4 3 15 22 14 13 8 20 25 23 12 1 2 13 8 15 12 1 21 22 5 16 25 14 10 11 9 7 2 18 17 4 23 24 19 20 6 3 3 10 11 20 25 13 9 14 12 1 8 21 23 5 2 15 19 16 6 24 7 18 22 17 4 2 22 19 4 17 3 18 23 20 8 13 16 6 12 24 21 7 5 25 1 15 10 11 14 9 16 15 10 11 6 2 7 18 23 22 3 14 19 4 25 13 8 9 12 5 17 1 21 20 24 5 21 24 23 4 14 17 15 11 6 2 7 18 10 9 3 22 1 20 25 13 8 19 16 12 1 13 14 9 12 5 20 10 24 16 6 15 21 11 8 4 17 2 18 19 3 22 23 7 25 25 3 22 19 20 1 21 8 9 12 24 13 17 23 16 7 15 10 11 6 2 14 18 4 5 17 2 7 18 8 25 3 19 4 13 1 22 12 20 5 24 21 14 23 16 9 15 10 11 6".split(" ")
+BEST_SCORE = 0
 
 "------------------------------------------------------------------------------"
 # each cell in the board should contain a Variable
@@ -71,9 +76,12 @@ class sudokuSolver:
     cellSize = 5
     # how many of each value are present on board
     heuristic = []
+    # comparator for LCV
+    comparator = None
     
-    def __init__(self, board, size = 25):
+    def __init__(self, board, size, comparator):
         self.size = size
+        self.comparator = comparator
         self.searchDepth = 2
         self.cellSize = int(math.sqrt(self.size))
         self.allValues = set(i for i in range(1,size+1))
@@ -171,9 +179,13 @@ class sudokuSolver:
 
     def countConstraints(self, var, val):
         x, y = var.position
+        #print("counting constrains for", x+1, y+1, val)
         count = self.countBoxConstraints(x, y, val)
+        #print("box", self.countBoxConstraints(x, y, val))
         count += self.countRowConstraints(y, val)
+        #print("row", self.countRowConstraints(y, val))
         count += self.countColConstraints(x, val)
+        #print("col", self.countColConstraints(x, val))
         return count
     
     #-----------------------------------------------------------------------------
@@ -213,7 +225,7 @@ class sudokuSolver:
         for i in range(1,self.size+1):
             self.constraintArr[i][-1].discard(var)
         self.constraintArr[0][-1].add(var)
-        '''
+        
         if not verifier.okSoFar(self):
             print("assigning ", val, "to ", var.position[0], var.position[1])
             print("not ok")
@@ -221,7 +233,7 @@ class sudokuSolver:
             print(var.domain[-1], "guessing: ", guess)
             raise Exception('invalid move')
             input()
-        '''
+        
         if guess:
             self.backtrackList.append(var)
             self.checkpointBoard()
@@ -234,11 +246,28 @@ class sudokuSolver:
         self.updateColConstraints(var.position[0], val)
         self.updateBoxConstraints(var.position[0], var.position[1], val)
         self.error = self.checkIfError()
+
+        '''score = 0
+        for i in range(self.size):
+            for j in range(self.size):
+                if int(self.board[i][j].value) == int(SOLUTION[i*self.size + j]):
+                    score += 1
+
+        global BEST_SCORE
+        if score > BEST_SCORE:
+            print("FOUND NEW BEST", score)
+            BEST_SCORE = score
+            self.printBoard()
+            #for i in range(self.size):
+            #    print(i, self.printConstraint(i))
+            #for i in range(self.size):'''
+                
         
 
     def backTrack(self):
         #print("made a mistake, backtracking...")
         variable = self.backtrackList.pop()
+        #print("variable", variable)
         variable.heuristic[variable.value-1] -= 1
         #print(variable)
         #print(variable.heuristic)
@@ -252,7 +281,7 @@ class sudokuSolver:
             bestCount = self.countConstraints(variable, bestVal)
             for v in values:
                 count = self.countConstraints(variable, v)
-                if count < bestCount:
+                if self.comparator(count, bestCount):
                     bestVal = v
                     bestCount = count
             #print(variable, "->", bestVal)
@@ -260,6 +289,7 @@ class sudokuSolver:
             if len(variable.domain[-1]) == 0:
                 self.assignVariable(variable, bestVal) # no longer a guess
             else:
+                #self.printBoard()
                 self.assignVariable(variable, bestVal, True) # still making a guess
         else:
             self.error = True
@@ -537,7 +567,7 @@ class sudokuSolver:
         bestCount = self.countConstraints(self.varHeap[0], bestVal)
         for v in values:
             count = self.countConstraints(self.varHeap[0], v)
-            if count < bestCount:
+            if self.comparator(count, bestCount):
                 bestVal = v
                 bestCount = count
         #print(self.varHeap[0], "->", bestVal)
@@ -545,6 +575,9 @@ class sudokuSolver:
         
         var = heapq.heappop(self.varHeap)
         if len(var.domain[-1]) > 0:
+            #print("var", var)
+            #print("var.domain", var.domain[-1])
+            #self.printBoard()
             self.assignVariable(var, bestVal, True)
         else:
             self.assignVariable(var, bestVal, False) # sometimes, not actually a guess
@@ -556,7 +589,7 @@ class sudokuSolver:
         for x in range(self.size):
             print()
             for y in range(self.size):
-                val = self.board[x][y].value-1 if (self.board[x][y].value != EMPTY) else "*"
+                val = self.board[x][y].value if (self.board[x][y].value != EMPTY) else "*"
                 print(val, end=" ")
                 if (y+1) % int(math.sqrt(self.size)) == 0:
                     print("\t", end="")
@@ -642,22 +675,59 @@ class sudokuSolver:
             '''
             
         if self.solved:
-            print("Solved!!")
+            return self.board
             #correct = verifier.verify(self)
             #if not correct:
             #    raise Exception('wrong')
-        if self.error:
-            print("No solution!!")
+        #if self.error:
+        #    print("No solution!!")
+
+        return None
     
 "------------------------------------------------------------------------------"
 
-if __name__ == "__main__":
-    SIZE = 25
-    solver = sudokuSolver(loader.Loader(SIZE), SIZE)
-    solver.printBoard()
+def solve(size, lcv, queue):
+    l = loader.Loader(size)
+    solver = sudokuSolver(l, size, lcv)
     solver.setDomains()
-    solver.solve()
+    solution = solver.solve()
+    queue.put(solution)
+
+if __name__ == "__main__":
+    # print loaded board
+    SIZE = 25
+    q = Queue()
+    p1 = Process(target=solve, args=(SIZE, lambda x, y: x < y, q,))
+    p1.start()
+    p2 = Process(target=solve, args=(SIZE, lambda x, y: x > y, q,))
+    p2.start()
+    #loader.Loader(SIZE)
+    solver = sudokuSolver(loader.Loader(SIZE), SIZE, None)
     solver.printBoard()
+
+    #solve(SIZE, lambda x, y: x < y, q)
+
+    # join both threads until one of them found a solution
+    solution = None
+    for i in range(2):
+        while solution is None:
+            if not q.empty():
+                solution = q.get()
+
+            time.sleep(0.1)
+
+    p1.terminate()
+    p2.terminate()
+
+    if solution is not None:
+        print("Solved!")
+        solver.board = solution
+        solver.printBoard()
+        exit(0)
+    else:
+        print("No solution!")
+
+
     '''
     solver.printConstraint(4)
     solver.searchRowRestrictions(4)

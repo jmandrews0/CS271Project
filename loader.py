@@ -27,7 +27,7 @@ class Loader:
 			for i in range(self.size):
 				arr = []
 				for j in range(self.size):
-					arr.append(int(data[i*self.size + j]))
+					arr.append(int(data[i*self.size + j]) + 1)
 
 				self.data.append(arr)
 
