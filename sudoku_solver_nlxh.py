@@ -589,7 +589,7 @@ class sudokuSolver:
         for x in range(self.size):
             print()
             for y in range(self.size):
-                val = self.board[x][y].value if (self.board[x][y].value != EMPTY) else "*"
+                val = self.board[x][y].value - 1 if (self.board[x][y].value != EMPTY) else "*"
                 print(val, end=" ")
                 if (y+1) % int(math.sqrt(self.size)) == 0:
                     print("\t", end="")
